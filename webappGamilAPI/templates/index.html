@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GenDiploma Web</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-text">
+        <h1>מערכת שליחת תעודות</h1>
+        <div class="hero-credit">© Rony Gabbai · rony.gabbai@gmail.com</div>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="panel">
+        <h2>Inputs</h2>
+        <form id="send-form">
+          <label class="field">
+            <span>CSV file</span>
+            <input type="file" name="csv_file" accept=".csv" />
+          </label>
+
+          <div class="csv-actions">
+            <button type="button" class="btn" id="preview-csv">Preview CSV</button>
+            <button type="button" class="btn" id="select-eligible">Select eligible</button>
+            <button type="button" class="btn" id="select-all">Select all</button>
+            <button type="button" class="btn" id="clear-selection">Clear selection</button>
+            <button type="button" class="btn" id="mark-new">Mark new=1</button>
+            <button type="button" class="btn" id="clear-new">Clear new</button>
+            <button type="button" class="btn" id="mark-send">Mark send=1</button>
+            <button type="button" class="btn" id="clear-send">Clear send</button>
+            <button type="button" class="btn" id="download-csv">Download updated CSV</button>
+          </div>
+
+          <div class="row">
+            <label class="field">
+              <span>Save CSV to path (optional)</span>
+              <input type="text" id="save-path" placeholder="trauma_1225/list.csv" />
+            </label>
+            <div class="csv-actions">
+              <button type="button" class="btn" id="save-to-output">Save to output folder</button>
+              <button type="button" class="btn" id="save-to-path">Save to path</button>
+            </div>
+          </div>
+
+          <div class="csv-preview">
+            <div class="csv-header">
+              <h3>Send management</h3>
+              <span id="csv-stats">No CSV loaded</span>
+            </div>
+            <div class="csv-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Send</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>New</th>
+                    <th>Send</th>
+                  </tr>
+                </thead>
+                <tbody id="csv-rows"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <label class="field">
+            <span>PDF template</span>
+            <input type="file" name="pdf_template" accept="application/pdf" required />
+          </label>
+          <label class="field">
+            <span>Logo (optional)</span>
+            <input type="file" name="logo_file" accept="image/*" />
+          </label>
+
+          <div class="row">
+            <label class="field">
+              <span>Letter format</span>
+              <div class="choice">
+                <label><input type="radio" name="letter_format" value="html" /> HTML</label>
+                <label><input type="radio" name="letter_format" value="text" checked /> Plain text</label>
+              </div>
+            </label>
+            <label class="field">
+              <span>Subject</span>
+              <input type="text" name="subject" placeholder="תעודת סיום קורס" />
+            </label>
+          </div>
+
+          <div id="html-panel">
+            <label class="field">
+              <span>HTML letter</span>
+              <textarea name="html_content" id="html-content" rows="10"></textarea>
+            </label>
+
+            <div class="emoji-bar" data-target="html-content">
+              <span>Emoji</span>
+              <button type="button" class="emoji-btn" data-emoji="😊">😊</button>
+              <button type="button" class="emoji-btn" data-emoji="💫">💫</button>
+              <button type="button" class="emoji-btn" data-emoji="✨">✨</button>
+              <button type="button" class="emoji-btn" data-emoji="📌">📌</button>
+              <button type="button" class="emoji-btn" data-emoji="🎓">🎓</button>
+            </div>
+
+            <label class="field">
+              <span>Load HTML file</span>
+              <input type="file" id="html-file" accept=".html,.htm" />
+            </label>
+          </div>
+
+          <div id="text-panel" class="hidden">
+            <label class="field">
+              <span>Plain text letter (Hebrew)</span>
+              <textarea name="text_content" id="text-content" rows="10"></textarea>
+            </label>
+
+            <div class="emoji-bar" data-target="text-content">
+              <span>Emoji</span>
+              <button type="button" class="emoji-btn" data-emoji="😊">😊</button>
+              <button type="button" class="emoji-btn" data-emoji="💫">💫</button>
+              <button type="button" class="emoji-btn" data-emoji="✨">✨</button>
+              <button type="button" class="emoji-btn" data-emoji="📌">📌</button>
+              <button type="button" class="emoji-btn" data-emoji="🎓">🎓</button>
+            </div>
+
+            <label class="field">
+              <span>Load text file</span>
+              <input type="file" id="text-file" accept=".txt" />
+            </label>
+          </div>
+
+          <h3>Gmail OAuth</h3>
+          <p class="muted">Localhost OAuth flow: click Connect Google for a one‑click login.</p>
+          <div class="row">
+            <label class="field">
+              <span>Status</span>
+              <input type="text" id="oauth-status" value="Not connected" readonly />
+            </label>
+            <div class="field">
+              <span>Connect</span>
+              <div class="actions">
+                <button type="button" class="btn" id="oauth-connect">Connect Google</button>
+                <button type="button" class="btn" id="oauth-logout">Disconnect</button>
+              </div>
+            </div>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn" id="oauth-check-setup">Check setup</button>
+          </div>
+          <label class="field">
+            <span>From email (auto-filled from Gmail)</span>
+            <input type="email" name="from_email" id="from-email" placeholder="from@domain" required />
+          </label>
+
+
+          <h3>Test Send</h3>
+          <div class="row">
+            <label class="field">
+              <span>Test name</span>
+              <input type="text" name="test_name" value="אמיר" />
+            </label>
+            <label class="field">
+              <span>Test email</span>
+              <input type="email" name="test_email" placeholder="test@domain" />
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="button" class="btn" data-action="test">Send Test</button>
+            <button type="button" class="btn primary" data-action="batch">Send Batch</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Preview mail content</h2>
+          <label class="toggle">
+            <input type="checkbox" id="force-rtl" checked />
+            <span>Force RTL preview</span>
+          </label>
+        </div>
+        <iframe id="preview" title="HTML Preview"></iframe>
+        <h3 class="mt">Preview PDF with student name</h3>
+        <iframe id="pdf-preview" title="PDF Preview"></iframe>
+        <h2 class="mt">Logs</h2>
+        <pre id="log"></pre>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

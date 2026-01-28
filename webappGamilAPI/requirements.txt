@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+reportlab<4
+PyPDF2
+pdf2image
+Pillow
+google-auth
+google-auth-oauthlib
+google-api-python-client

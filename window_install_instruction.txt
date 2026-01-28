@@ -1,0 +1,49 @@
+Windows install instructions (non‑technical)
+
+Goal: run the DiplomaSender app from the public GitHub repo.
+
+1) Install Python
+- Go to https://www.python.org/downloads/windows/
+- Download Python 3.11 (or latest 3.x)
+- During install, CHECK the box: “Add Python to PATH”.
+
+2) Install Git
+- Go to https://git-scm.com/download/win
+- Install with default options.
+
+3) Download the project
+- Open “Command Prompt” (Start → type: cmd)
+- Run:
+  mkdir DiplomaSender
+  cd DiplomaSender
+  git clone https://github.com/rgabbai/diploma_creator.git
+
+4) Create a virtual environment
+- Run:
+  python -m venv .venv
+  .\.venv\Scripts\activate
+
+5) Install dependencies
+- Run:
+  pip install -r webappGamilAPI\requirements.txt
+
+6) Install Poppler (needed for PDF → JPG)
+- Download Poppler for Windows (zip) and extract it.
+- Add the Poppler “bin” folder to your Windows PATH.
+  (Search “Edit the system environment variables” → Environment Variables → Path → New)
+
+7) Set up Gmail OAuth (one time)
+- Follow the README instructions in webappGamilAPI\README.md
+- Save the client secret as: webappGamilAPI\client_secret.json
+
+8) Run the app
+- Run:
+  python -m uvicorn webappGamilAPI.app:app --reload --port 8001
+
+9) Open the app
+- Open your browser and go to:
+  http://127.0.0.1:8001
+
+Notes
+- If you see a Windows security popup, click “Allow”.
+- If “Connect Google” fails, make sure your Gmail is in Test Users (Google Cloud OAuth screen).

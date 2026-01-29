@@ -37,6 +37,29 @@ python -m uvicorn webappGamilAPI.app:app --reload --port 8001
 
 Open: `http://127.0.0.1:8001`
 
+## Run with Docker (Windows / Linux)
+
+Prerequisites (Windows):
+- Docker Desktop with WSL2 backend enabled
+
+Run:
+
+```bash
+docker compose up --build
+```
+
+Stop:
+- Ctrl+C, then:
+
+```bash
+docker compose down
+```
+
+Troubleshooting:
+- Port 8000 already in use: change the compose mapping to `"8001:8000"`
+- Check logs: `docker compose logs -f`
+- PDF → JPG fails: Poppler is already included in the image
+
 ## Gmail OAuth setup (localhost)
 
 1) Create a Google Cloud project and enable **Gmail API**.

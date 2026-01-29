@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  diploma_creator:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./webappGamilAPI/output:/app/webappGamilAPI/output
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

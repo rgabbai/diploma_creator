@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Virtual env
+.venv/
+venv/
+
+# Test/coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Linters/type checkers
+.mypy_cache/
+.ruff_cache/
+.pyright/
+
+# App artifacts
+webappGamilAPI/output/
+webappGamilAPI/.tokens/
+webappGamilAPI/client_secret.json
+
+# Env files
+.env
+.env.*
+
+# OS/editor
+.DS_Store
+Thumbs.db

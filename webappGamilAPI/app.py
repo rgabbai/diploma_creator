@@ -624,7 +624,7 @@ def send_batch(
                 name_x_offset=name_x_offset,
                 name_y_offset=name_y_offset,
             )
-    jpg_output = convert_pdf_to_jpg(pdf_output)
+            jpg_output = convert_pdf_to_jpg(pdf_output)
             message = build_message(
                 student_name=student["name"],
                 student_email=student["email"],

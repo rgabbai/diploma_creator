@@ -362,6 +362,30 @@ textarea {
   gap: 8px;
 }
 
+.pdf-controls-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.pdf-controls-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 120px;
+}
+
+.pdf-controls-field input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  background: #fff;
+}
+
 .pdf-controls-status {
   font-size: 13px;
   color: var(--accent-dark);

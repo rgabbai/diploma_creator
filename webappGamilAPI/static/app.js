@@ -43,11 +43,15 @@ const pdfYMinusButton = document.getElementById("pdf-y-minus");
 const pdfYPlusButton = document.getElementById("pdf-y-plus");
 const pdfXValue = document.getElementById("pdf-x-value");
 const pdfYValue = document.getElementById("pdf-y-value");
+const pdfXInput = document.getElementById("pdf-x-input");
+const pdfYInput = document.getElementById("pdf-y-input");
 
 let lastCsvRows = [];
 let lastCsvHeaders = [];
 let lastCsvFilename = "updated_list.csv";
 const NAME_OFFSET_STEP = 5;
+const PDF_BASE_X = 306;
+const PDF_BASE_Y = 572;
 
 const escapeHtml = (value) =>
   value
@@ -221,10 +225,18 @@ const readOffsetValue = (input) => {
 
 const syncOffsetDisplay = () => {
   if (pdfXValue && nameXOffsetInput) {
-    pdfXValue.textContent = `${readOffsetValue(nameXOffsetInput)}`;
+    const currentX = PDF_BASE_X + readOffsetValue(nameXOffsetInput);
+    pdfXValue.textContent = `${currentX}`;
   }
   if (pdfYValue && nameYOffsetInput) {
-    pdfYValue.textContent = `${readOffsetValue(nameYOffsetInput)}`;
+    const currentY = PDF_BASE_Y + readOffsetValue(nameYOffsetInput);
+    pdfYValue.textContent = `${currentY}`;
+  }
+  if (pdfXInput && nameXOffsetInput) {
+    pdfXInput.value = `${PDF_BASE_X + readOffsetValue(nameXOffsetInput)}`;
+  }
+  if (pdfYInput && nameYOffsetInput) {
+    pdfYInput.value = `${PDF_BASE_Y + readOffsetValue(nameYOffsetInput)}`;
   }
 };
 
@@ -235,6 +247,17 @@ const updateNameOffsets = (deltaX, deltaY) => {
   }
   if (nameYOffsetInput) {
     const nextY = readOffsetValue(nameYOffsetInput) + deltaY;
+    nameYOffsetInput.value = `${nextY}`;
+  }
+  syncOffsetDisplay();
+  updatePdfPreview();
+};
+
+const setNameOffsets = (nextX, nextY) => {
+  if (nameXOffsetInput && Number.isFinite(nextX)) {
+    nameXOffsetInput.value = `${nextX}`;
+  }
+  if (nameYOffsetInput && Number.isFinite(nextY)) {
     nameYOffsetInput.value = `${nextY}`;
   }
   syncOffsetDisplay();
@@ -252,6 +275,22 @@ if (pdfYMinusButton) {
 }
 if (pdfYPlusButton) {
   pdfYPlusButton.addEventListener("click", () => updateNameOffsets(0, NAME_OFFSET_STEP));
+}
+
+if (pdfXInput) {
+  pdfXInput.addEventListener("input", () => {
+    const absoluteX = readOffsetValue(pdfXInput);
+    const absoluteY = pdfYInput ? readOffsetValue(pdfYInput) : PDF_BASE_Y;
+    setNameOffsets(absoluteX - PDF_BASE_X, absoluteY - PDF_BASE_Y);
+  });
+}
+
+if (pdfYInput) {
+  pdfYInput.addEventListener("input", () => {
+    const absoluteX = pdfXInput ? readOffsetValue(pdfXInput) : PDF_BASE_X;
+    const absoluteY = readOffsetValue(pdfYInput);
+    setNameOffsets(absoluteX - PDF_BASE_X, absoluteY - PDF_BASE_Y);
+  });
 }
 
 formatInputs.forEach((input) => {

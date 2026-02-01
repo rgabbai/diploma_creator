@@ -1,0 +1,89 @@
+Render setup (Native Python, no Docker)
+======================================
+
+Overview
+--------
+This app is a FastAPI service located at `webappGamilAPI/app.py` and expects to bind
+on the port given by the `PORT` environment variable. It also needs a Google OAuth
+client secret JSON file (see Gmail OAuth section below).
+
+1) Create a Render Web Service
+------------------------------
+1. Go to https://dashboard.render.com
+2. Click "New" → "Web Service".
+3. Connect your GitHub repo and pick this repository.
+4. When asked for runtime:
+   - Runtime: "Python 3"
+   - Root directory: leave blank (repo root)
+
+2) Build & Start commands
+-------------------------
+Use these commands in the Render service settings:
+
+Build command:
+  pip install -r webappGamilAPI/requirements.txt
+
+Start command:
+  uvicorn webappGamilAPI.app:app --host 0.0.0.0 --port $PORT
+
+Notes:
+- Render sets $PORT automatically. Do not hardcode it.
+- The service will be available at: https://<your-service>.onrender.com
+
+3) Environment variables
+------------------------
+Minimum:
+- PORT: leave empty (Render injects automatically). Do not override unless needed.
+
+Optional but recommended:
+- GMAIL_OAUTH_REDIRECT_URI (if you want a fixed redirect URL). Example:
+  https://<your-service>.onrender.com/oauth/callback
+
+4) Gmail OAuth client secret file
+---------------------------------
+The app expects a file called `webappGamilAPI/client_secret.json` by default, or
+an alternative file path specified via the environment variable:
+
+  GMAIL_CLIENT_SECRET_PATH=/path/to/client_secret.json
+
+You have two ways to provide this file on Render:
+
+Option A (Recommended if available): Render "Secret Files"
+- In your Render Web Service settings, add a Secret File with the contents of
+  your Google OAuth client_secret.json.
+- Set GMAIL_CLIENT_SECRET_PATH to the secret file path Render provides.
+
+Option B (Repo file):
+- Add `webappGamilAPI/client_secret.json` to your repo (NOT recommended for
+  public repos). Commit and redeploy.
+
+If you want a safer option without secret files, tell me and I can update the
+app to read the JSON from an environment variable instead.
+
+5) Google OAuth redirect URI
+----------------------------
+In Google Cloud Console, add this as an Authorized Redirect URI:
+
+  https://<your-service>.onrender.com/oauth/callback
+
+If you test locally, also add:
+  http://localhost:8000/oauth/callback
+  http://127.0.0.1:8000/oauth/callback
+
+6) Persistent storage note
+--------------------------
+Render's default filesystem is ephemeral. The app writes outputs into:
+  webappGamilAPI/output
+These files may disappear on redeploy or restart.
+
+If you need persistent storage, attach a Render Disk (paid feature) and change
+OUTPUT_DIR in `webappGamilAPI/app.py` to a path inside that disk.
+
+7) Quick checklist
+------------------
+- [ ] Build command set
+- [ ] Start command set
+- [ ] OAuth client secret file available
+- [ ] Authorized redirect URI added
+- [ ] Service deployed and healthy
+

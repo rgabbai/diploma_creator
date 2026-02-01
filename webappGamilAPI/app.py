@@ -26,7 +26,10 @@ from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
-from pdf2image import convert_from_path
+try:
+    from pdf2image import convert_from_path
+except Exception:  # noqa: BLE001
+    convert_from_path = None
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
@@ -50,6 +53,7 @@ CLIENT_SECRETS = APP_DIR / "client_secret.json"
 CLIENT_SECRETS_ENV = "GMAIL_CLIENT_SECRET_PATH"
 TOKEN_DIR = APP_DIR / ".tokens"
 TOKEN_FILE = TOKEN_DIR / "gmail_token.json"
+DISABLE_JPG_ENV = "DIPLOMA_DISABLE_JPG"
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -145,7 +149,11 @@ def generate_diploma_pdf(
     return pdf_filename
 
 
-def convert_pdf_to_jpg(pdf_filename: Path) -> Path:
+def convert_pdf_to_jpg(pdf_filename: Path) -> Optional[Path]:
+    if os.environ.get(DISABLE_JPG_ENV, "1").strip() in {"1", "true", "yes"}:
+        return None
+    if convert_from_path is None:
+        return None
     images = convert_from_path(str(pdf_filename))
     jpg_filename = pdf_filename.with_suffix(".jpg")
     images[0].save(jpg_filename, "JPEG")
@@ -159,7 +167,7 @@ def build_message(
     subject: str,
     from_email: str,
     pdf_filename: Path,
-    jpg_filename: Path,
+    jpg_filename: Optional[Path],
     logo_bytes: Optional[bytes] = None,
     logo_filename: Optional[str] = None,
 ) -> MIMEMultipart:
@@ -185,11 +193,12 @@ def build_message(
         pdf_attachment.add_header("Content-Disposition", "attachment", filename=pdf_filename.name)
         msg.attach(pdf_attachment)
 
-    with open(jpg_filename, "rb") as f:
-        jpg_data = f.read()
-        jpg_attachment = MIMEApplication(jpg_data, _subtype="jpeg")
-        jpg_attachment.add_header("Content-Disposition", "attachment", filename=jpg_filename.name)
-        msg.attach(jpg_attachment)
+    if jpg_filename and jpg_filename.exists():
+        with open(jpg_filename, "rb") as f:
+            jpg_data = f.read()
+            jpg_attachment = MIMEApplication(jpg_data, _subtype="jpeg")
+            jpg_attachment.add_header("Content-Disposition", "attachment", filename=jpg_filename.name)
+            msg.attach(jpg_attachment)
 
     return msg
 
@@ -615,7 +624,7 @@ def send_batch(
                 name_x_offset=name_x_offset,
                 name_y_offset=name_y_offset,
             )
-            jpg_output = convert_pdf_to_jpg(pdf_output)
+    jpg_output = convert_pdf_to_jpg(pdf_output)
             message = build_message(
                 student_name=student["name"],
                 student_email=student["email"],

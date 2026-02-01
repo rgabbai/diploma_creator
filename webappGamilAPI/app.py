@@ -73,7 +73,7 @@ def is_hebrew(text: str) -> bool:
     return any("\u0590" <= char <= "\u05FF" for char in text)
 
 
-def make_overlay_pdf(student_name: str) -> BytesIO:
+def make_overlay_pdf(student_name: str, x_offset: int = 0, y_offset: int = 0) -> BytesIO:
     register_font_once()
     packet = BytesIO()
     can = canvas.Canvas(packet, pagesize=letter)
@@ -83,15 +83,21 @@ def make_overlay_pdf(student_name: str) -> BytesIO:
     name_y_offset = 220
 
     can.setFont("Noto", 42)
-    can.drawCentredString(width / 2.0, height - name_y_offset, reversed_name)
+    can.drawCentredString(width / 2.0 + x_offset, height - name_y_offset + y_offset, reversed_name)
     can.save()
 
     packet.seek(0)
     return packet
 
 
-def generate_diploma_pdf(pdf_template_path: Path, student_name: str, output_dir: Path) -> Path:
-    overlay_packet = make_overlay_pdf(student_name)
+def generate_diploma_pdf(
+    pdf_template_path: Path,
+    student_name: str,
+    output_dir: Path,
+    name_x_offset: int = 0,
+    name_y_offset: int = 0,
+) -> Path:
+    overlay_packet = make_overlay_pdf(student_name, x_offset=name_x_offset, y_offset=name_y_offset)
     template_pdf = PyPDF2.PdfReader(open(pdf_template_path, "rb"))
     existing_page = template_pdf.pages[0]
 
@@ -389,6 +395,8 @@ def test_send(
     test_name: str = Form("אמיר"),
     test_email: str = Form(""),
     from_email: str = Form(""),
+    name_x_offset: int = Form(0),
+    name_y_offset: int = Form(0),
 ):
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = OUTPUT_DIR / f"test-{run_id}"
@@ -414,7 +422,7 @@ def test_send(
     if not html_content:
         return JSONResponse({"ok": False, "error": "Letter content is empty."}, status_code=400)
 
-    pdf_output = generate_diploma_pdf(pdf_path, test_name, run_dir)
+    pdf_output = generate_diploma_pdf(pdf_path, test_name, run_dir, name_x_offset=name_x_offset, name_y_offset=name_y_offset)
     jpg_output = convert_pdf_to_jpg(pdf_output)
 
     logo_bytes = None
@@ -465,6 +473,8 @@ def preview_csv(csv_file: UploadFile = File(...)):
 def preview_pdf(
     pdf_template: UploadFile = File(...),
     test_name: str = Form(""),
+    name_x_offset: int = Form(0),
+    name_y_offset: int = Form(0),
 ):
     if not test_name.strip():
         return JSONResponse({"ok": False, "error": "Missing test name."}, status_code=400)
@@ -473,7 +483,13 @@ def preview_pdf(
     run_dir = OUTPUT_DIR / f"preview-{run_id}"
     pdf_path = save_upload(pdf_template, run_dir)
 
-    pdf_output = generate_diploma_pdf(pdf_path, test_name.strip(), run_dir)
+    pdf_output = generate_diploma_pdf(
+        pdf_path,
+        test_name.strip(),
+        run_dir,
+        name_x_offset=name_x_offset,
+        name_y_offset=name_y_offset,
+    )
     return {
         "ok": True,
         "pdf_url": f"/output/{pdf_output.parent.name}/{pdf_output.name}",
@@ -491,6 +507,8 @@ def send_batch(
     subject: str = Form(""),
     selected_indices: str = Form(""),
     from_email: str = Form(""),
+    name_x_offset: int = Form(0),
+    name_y_offset: int = Form(0),
 ):
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = OUTPUT_DIR / f"batch-{run_id}"
@@ -555,7 +573,13 @@ def send_batch(
             continue
 
         try:
-            pdf_output = generate_diploma_pdf(pdf_path, student["name"], run_dir)
+            pdf_output = generate_diploma_pdf(
+                pdf_path,
+                student["name"],
+                run_dir,
+                name_x_offset=name_x_offset,
+                name_y_offset=name_y_offset,
+            )
             jpg_output = convert_pdf_to_jpg(pdf_output)
             message = build_message(
                 student_name=student["name"],
@@ -602,6 +626,8 @@ async def send_batch_stream(
     subject: str = Form(""),
     selected_indices: str = Form(""),
     from_email: str = Form(""),
+    name_x_offset: int = Form(0),
+    name_y_offset: int = Form(0),
 ):
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = OUTPUT_DIR / f"batch-{run_id}"
@@ -664,7 +690,13 @@ async def send_batch_stream(
                 continue
 
             try:
-                pdf_output = generate_diploma_pdf(pdf_path, student["name"], run_dir)
+                pdf_output = generate_diploma_pdf(
+                    pdf_path,
+                    student["name"],
+                    run_dir,
+                    name_x_offset=name_x_offset,
+                    name_y_offset=name_y_offset,
+                )
                 jpg_output = convert_pdf_to_jpg(pdf_output)
                 message = build_message(
                     student_name=student["name"],

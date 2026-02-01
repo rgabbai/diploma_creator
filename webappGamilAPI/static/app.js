@@ -35,10 +35,19 @@ const oauthConnect = document.getElementById("oauth-connect");
 const oauthLogout = document.getElementById("oauth-logout");
 const oauthCheckSetup = document.getElementById("oauth-check-setup");
 const fromEmailInput = document.getElementById("from-email");
+const nameXOffsetInput = document.getElementById("name-x-offset");
+const nameYOffsetInput = document.getElementById("name-y-offset");
+const pdfXMinusButton = document.getElementById("pdf-x-minus");
+const pdfXPlusButton = document.getElementById("pdf-x-plus");
+const pdfYMinusButton = document.getElementById("pdf-y-minus");
+const pdfYPlusButton = document.getElementById("pdf-y-plus");
+const pdfXValue = document.getElementById("pdf-x-value");
+const pdfYValue = document.getElementById("pdf-y-value");
 
 let lastCsvRows = [];
 let lastCsvHeaders = [];
 let lastCsvFilename = "updated_list.csv";
+const NAME_OFFSET_STEP = 5;
 
 const escapeHtml = (value) =>
   value
@@ -95,6 +104,12 @@ const updatePdfPreview = async () => {
   const data = new FormData();
   data.set("pdf_template", pdfInput.files[0]);
   data.set("test_name", testNameInput.value.trim());
+  if (nameXOffsetInput) {
+    data.set("name_x_offset", nameXOffsetInput.value || "0");
+  }
+  if (nameYOffsetInput) {
+    data.set("name_y_offset", nameYOffsetInput.value || "0");
+  }
 
   log.textContent = "Generating PDF preview...";
   try {
@@ -197,6 +212,46 @@ if (testNameInput) {
     }
     pdfPreviewTimer = setTimeout(updatePdfPreview, 500);
   });
+}
+
+const readOffsetValue = (input) => {
+  const parsed = Number.parseInt(input?.value ?? "0", 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const syncOffsetDisplay = () => {
+  if (pdfXValue && nameXOffsetInput) {
+    pdfXValue.textContent = `${readOffsetValue(nameXOffsetInput)}`;
+  }
+  if (pdfYValue && nameYOffsetInput) {
+    pdfYValue.textContent = `${readOffsetValue(nameYOffsetInput)}`;
+  }
+};
+
+const updateNameOffsets = (deltaX, deltaY) => {
+  if (nameXOffsetInput) {
+    const nextX = readOffsetValue(nameXOffsetInput) + deltaX;
+    nameXOffsetInput.value = `${nextX}`;
+  }
+  if (nameYOffsetInput) {
+    const nextY = readOffsetValue(nameYOffsetInput) + deltaY;
+    nameYOffsetInput.value = `${nextY}`;
+  }
+  syncOffsetDisplay();
+  updatePdfPreview();
+};
+
+if (pdfXMinusButton) {
+  pdfXMinusButton.addEventListener("click", () => updateNameOffsets(-NAME_OFFSET_STEP, 0));
+}
+if (pdfXPlusButton) {
+  pdfXPlusButton.addEventListener("click", () => updateNameOffsets(NAME_OFFSET_STEP, 0));
+}
+if (pdfYMinusButton) {
+  pdfYMinusButton.addEventListener("click", () => updateNameOffsets(0, -NAME_OFFSET_STEP));
+}
+if (pdfYPlusButton) {
+  pdfYPlusButton.addEventListener("click", () => updateNameOffsets(0, NAME_OFFSET_STEP));
 }
 
 formatInputs.forEach((input) => {
@@ -323,6 +378,7 @@ form.addEventListener("click", (event) => {
 updatePreview();
 syncFormatPanels();
 updateOauthStatus();
+syncOffsetDisplay();
 
 if (oauthConnect) {
   oauthConnect.addEventListener("click", () => {

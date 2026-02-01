@@ -168,6 +168,8 @@
               <input type="email" name="test_email" placeholder="test@domain" />
             </label>
           </div>
+          <input type="hidden" name="name_x_offset" id="name-x-offset" value="0" />
+          <input type="hidden" name="name_y_offset" id="name-y-offset" value="0" />
 
           <div class="actions">
             <button type="button" class="btn" data-action="test">Send Test</button>
@@ -186,6 +188,16 @@
         </div>
         <iframe id="preview" title="HTML Preview"></iframe>
         <h3 class="mt">Preview PDF with student name</h3>
+        <div class="pdf-controls">
+          <div class="pdf-controls-title">Name position offsets</div>
+          <div class="pdf-controls-buttons">
+            <button type="button" class="btn" id="pdf-x-minus">X-</button>
+            <button type="button" class="btn" id="pdf-x-plus">X+</button>
+            <button type="button" class="btn" id="pdf-y-minus">Y-</button>
+            <button type="button" class="btn" id="pdf-y-plus">Y+</button>
+          </div>
+          <div class="pdf-controls-status">X: <span id="pdf-x-value">0</span> | Y: <span id="pdf-y-value">0</span></div>
+        </div>
         <iframe id="pdf-preview" title="PDF Preview"></iframe>
         <h2 class="mt">Logs</h2>
         <pre id="log"></pre>

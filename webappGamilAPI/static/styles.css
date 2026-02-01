@@ -282,6 +282,34 @@ textarea {
   background: #fff;
 }
 
+.pdf-controls {
+  margin: 12px 0 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff6ee;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pdf-controls-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pdf-controls-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pdf-controls-status {
+  font-size: 13px;
+  color: var(--accent-dark);
+}
+
 #log {
   background: #fff7ef;
   border: 1px solid #f3dcca;

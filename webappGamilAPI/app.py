@@ -255,24 +255,34 @@ def decode_csv_content(content: bytes) -> str:
     return content.decode("utf-8", errors="replace")
 
 
+def normalize_student_row(row: Dict[str, str], fieldnames: List[str]) -> Dict[str, str]:
+    name_field = (row.get("name") or "").strip()
+    first = (row.get("first") or "").strip()
+    last = (row.get("last") or "").strip()
+    email = (row.get("email") or "").strip() or (row.get("mail") or "").strip()
+    new = (row.get("new") or "").strip()
+    send = (row.get("send") or "").strip()
+
+    has_name_field = "name" in fieldnames
+    full_name = name_field if has_name_field and name_field else f"{first} {last}".strip()
+
+    return {
+        "first": first,
+        "last": last,
+        "email": email,
+        "new": new,
+        "send": send,
+        "name": full_name,
+    }
+
+
 def parse_csv(content: bytes) -> List[Dict[str, str]]:
     decoded = decode_csv_content(content)
     reader = csv.DictReader(io.StringIO(decoded, newline=""))
     rows = []
+    fieldnames = reader.fieldnames or []
     for row in reader:
-        first = row.get("first", "").strip()
-        last = row.get("last", "").strip()
-        email = row.get("email", "").strip() or row.get("mail", "").strip()
-        new = row.get("new", "").strip()
-        send = row.get("send", "").strip()
-        rows.append({
-            "first": first,
-            "last": last,
-            "email": email,
-            "new": new,
-            "send": send,
-            "name": f"{first} {last}".strip(),
-        })
+        rows.append(normalize_student_row(row, fieldnames))
     return rows
 
 
@@ -287,17 +297,13 @@ def parse_csv_with_headers(content: bytes) -> Tuple[List[str], List[Dict[str, st
     rows = []
     for row in reader:
         raw = {key: (row.get(key) or "").strip() for key in fieldnames}
-        first = raw.get("first", "").strip()
-        last = raw.get("last", "").strip()
-        email = raw.get("email", "").strip() or raw.get("mail", "").strip()
-        new = raw.get("new", "").strip()
-        send = raw.get("send", "").strip()
+        normalized = normalize_student_row(raw, fieldnames)
         rows.append({
             "raw": raw,
-            "name": f"{first} {last}".strip(),
-            "email": email,
-            "new": new,
-            "send": send,
+            "name": normalized["name"],
+            "email": normalized["email"],
+            "new": normalized["new"],
+            "send": normalized["send"],
         })
     return fieldnames, rows
 

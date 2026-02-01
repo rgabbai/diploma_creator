@@ -38,6 +38,13 @@ APP_DIR = Path(__file__).resolve().parent
 REPO_DIR = APP_DIR.parent
 OUTPUT_DIR = APP_DIR / "output"
 FONT_PATH = REPO_DIR / "Noto_Sans_Hebrew,Noto_Serif_Hebrew" / "Noto_Sans_Hebrew" / "static" / "NotoSansHebrew_Condensed-Bold.ttf"
+FONT_PREF_ENV = "DIPLOMA_FONT"
+FONT_CANDIDATES = [
+    ("Noto", [FONT_PATH]),
+    ("Arial", [Path("C:/Windows/Fonts/arial.ttf"), Path("/usr/share/fonts/truetype/msttcorefonts/Arial.ttf")]),
+    ("David", [Path("C:/Windows/Fonts/david.ttf"), Path("C:/Windows/Fonts/davidr.ttf")]),
+]
+ACTIVE_FONT_NAME: str | None = None
 DEFAULT_SUBJECT = "תעודת סיום קורס"
 CLIENT_SECRETS = APP_DIR / "client_secret.json"
 CLIENT_SECRETS_ENV = "GMAIL_CLIENT_SECRET_PATH"
@@ -62,11 +69,33 @@ def index(request: Request):
 
 
 def register_font_once() -> None:
-    if "Noto" in pdfmetrics.getRegisteredFontNames():
+    global ACTIVE_FONT_NAME
+    if ACTIVE_FONT_NAME and ACTIVE_FONT_NAME in pdfmetrics.getRegisteredFontNames():
         return
-    if not FONT_PATH.exists():
-        raise FileNotFoundError(f"Font file not found: {FONT_PATH}")
-    pdfmetrics.registerFont(TTFont("Noto", str(FONT_PATH)))
+
+    for font_name, paths in FONT_CANDIDATES:
+        if font_name in pdfmetrics.getRegisteredFontNames():
+            if ACTIVE_FONT_NAME is None:
+                ACTIVE_FONT_NAME = font_name
+            continue
+        for path in paths:
+            if path.exists():
+                pdfmetrics.registerFont(TTFont(font_name, str(path)))
+                if ACTIVE_FONT_NAME is None:
+                    ACTIVE_FONT_NAME = font_name
+                break
+
+    preferred = os.environ.get(FONT_PREF_ENV, "").strip()
+    if preferred and preferred in pdfmetrics.getRegisteredFontNames():
+        ACTIVE_FONT_NAME = preferred
+
+    if ACTIVE_FONT_NAME is None:
+        raise FileNotFoundError(f"No supported font files found. Checked: {FONT_CANDIDATES}")
+
+
+def get_active_font() -> str:
+    register_font_once()
+    return ACTIVE_FONT_NAME or "Helvetica"
 
 
 def is_hebrew(text: str) -> bool:
@@ -82,7 +111,7 @@ def make_overlay_pdf(student_name: str, x_offset: int = 0, y_offset: int = 0) ->
     reversed_name = student_name[::-1] if is_hebrew(student_name) else student_name
     name_y_offset = 220
 
-    can.setFont("Noto", 42)
+    can.setFont(get_active_font(), 42)
     can.drawCentredString(width / 2.0 + x_offset, height - name_y_offset + y_offset, reversed_name)
     can.save()
 

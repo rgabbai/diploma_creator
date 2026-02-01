@@ -640,7 +640,6 @@ def send_batch(
             sent.append({"name": student["name"], "email": student["email"]})
             sent_indices.append(idx)
             log_lines.append(f"send:{student['email']}")
-            time.sleep(0.5)
         except Exception as exc:  # noqa: BLE001
             errors.append({"name": student["name"], "error": str(exc)})
 
@@ -757,7 +756,6 @@ async def send_batch_stream(
                 sent.append({"name": student["name"], "email": student["email"]})
                 sent_indices.append(idx)
                 yield f"send:{student['email']}\n"
-                time.sleep(0.5)
             except Exception as exc:  # noqa: BLE001
                 errors.append({"name": student["name"], "error": str(exc)})
                 yield f"error:{student['email']}:{str(exc)}\n"

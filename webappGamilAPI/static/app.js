@@ -261,12 +261,21 @@ formatInputs.forEach((input) => {
   });
 });
 
+const applyCsvOverride = (data) => {
+  if (!csvInput || !csvInput.files.length || !lastCsvRows.length) {
+    return;
+  }
+  const csvContent = buildCsvContent();
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  data.set("csv_file", blob, lastCsvFilename || "updated_list.csv");
+};
+
 const sendFormData = async (endpoint, options = {}) => {
-  syncSelectionToNew();
   const data = new FormData(form);
   data.set("html_content", htmlContent.value || "");
   data.set("text_content", textContent.value || "");
   data.set("selected_indices", getSelectedIndices().join(","));
+  applyCsvOverride(data);
 
   if (options.requirePdf && (!pdfInput || !pdfInput.files.length)) {
     log.textContent = "Missing PDF template. Please load a PDF file first.";
@@ -304,7 +313,6 @@ const sendFormData = async (endpoint, options = {}) => {
 };
 
 const sendBatchStream = async () => {
-  syncSelectionToNew();
   if (!csvInput || !csvInput.files.length) {
     log.textContent = "Missing CSV file. Please load a CSV file first.";
     return;
@@ -318,6 +326,7 @@ const sendBatchStream = async () => {
   data.set("html_content", htmlContent.value || "");
   data.set("text_content", textContent.value || "");
   data.set("selected_indices", getSelectedIndices().join(","));
+  applyCsvOverride(data);
 
   log.textContent = "Sending batch...";
   try {
@@ -371,6 +380,10 @@ form.addEventListener("click", (event) => {
     sendFormData("/api/test-send", { requirePdf: true, requireTestEmail: true });
   }
   if (action === "batch") {
+    const ok = window.confirm("Are you sure - Did you test it before");
+    if (!ok) {
+      return;
+    }
     sendBatchStream();
   }
 });

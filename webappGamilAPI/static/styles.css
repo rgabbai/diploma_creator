@@ -339,6 +339,16 @@ textarea {
   background: #fff;
 }
 
+#jpg-preview {
+  width: 100%;
+  height: 546px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  object-fit: contain;
+  display: block;
+}
+
 .pdf-controls {
   margin: 12px 0 14px;
   padding: 12px;

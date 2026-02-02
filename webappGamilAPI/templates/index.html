@@ -75,7 +75,11 @@
             <h3 class="hebrew-header">הכנסת תעודה</h3>
             <label class="field">
               <span>PDF template</span>
-              <input type="file" name="pdf_template" accept="application/pdf" required />
+              <input type="file" name="pdf_template" accept="application/pdf" />
+            </label>
+            <label class="field">
+              <span>JPG template (optional)</span>
+              <input type="file" name="jpg_template" accept="image/jpeg,image/jpg" />
             </label>
             <h3 class="hebrew-header">הכנסת לוגו (אופציונלי)</h3>
             <label class="field">
@@ -173,6 +177,7 @@
           <section class="form-section section-send">
             <h3 class="hebrew-header">שליחת תעודות</h3>
             <p class="muted">שלח לבדיקה לפני שליחה מלאה</p>
+            <p class="muted">PDF template is required for sending (JPG-only is preview only).</p>
             <div class="row">
               <label class="field">
                 <span>Test name</span>
@@ -225,6 +230,8 @@
           <div class="pdf-controls-status">X: <span id="pdf-x-value">0</span> | Y: <span id="pdf-y-value">0</span></div>
         </div>
         <iframe id="pdf-preview" title="PDF Preview"></iframe>
+        <h3 class="mt">Preview JPG with student name</h3>
+        <img id="jpg-preview" alt="JPG Preview" />
         <div class="logs-section">
           <h2 class="mt">Logs</h2>
           <pre id="log"></pre>
@@ -233,6 +240,6 @@
     </main>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>

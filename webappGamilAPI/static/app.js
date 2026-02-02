@@ -26,9 +26,11 @@ const csvRows = document.getElementById("csv-rows");
 const csvStats = document.getElementById("csv-stats");
 const csvInput = form.querySelector("input[name='csv_file']");
 const pdfInput = form.querySelector("input[name='pdf_template']");
+const jpgInput = form.querySelector("input[name='jpg_template']");
 const testEmailInput = form.querySelector("input[name='test_email']");
 const testNameInput = form.querySelector("input[name='test_name']");
 const pdfPreview = document.getElementById("pdf-preview");
+const jpgPreview = document.getElementById("jpg-preview");
 const logoInput = form.querySelector("input[name='logo_file']");
 const oauthStatus = document.getElementById("oauth-status");
 const oauthConnect = document.getElementById("oauth-connect");
@@ -97,16 +99,29 @@ const syncFormatPanels = () => {
 let pdfPreviewTimer = null;
 const updatePdfPreview = async () => {
   if (!pdfPreview) return;
-  if (!pdfInput || !pdfInput.files.length) {
+  const hasPdf = !!(pdfInput && pdfInput.files.length);
+  const hasJpg = !!(jpgInput && jpgInput.files.length);
+  if (!hasPdf && !hasJpg) {
     pdfPreview.removeAttribute("src");
+    if (jpgPreview) {
+      jpgPreview.removeAttribute("src");
+    }
     return;
   }
   if (!testNameInput || !testNameInput.value.trim()) {
     pdfPreview.removeAttribute("src");
+    if (jpgPreview) {
+      jpgPreview.removeAttribute("src");
+    }
     return;
   }
   const data = new FormData();
-  data.set("pdf_template", pdfInput.files[0]);
+  if (hasPdf) {
+    data.set("pdf_template", pdfInput.files[0]);
+  }
+  if (hasJpg) {
+    data.set("jpg_template", jpgInput.files[0]);
+  }
   data.set("test_name", testNameInput.value.trim());
   if (nameXOffsetInput) {
     data.set("name_x_offset", nameXOffsetInput.value || "0");
@@ -123,9 +138,29 @@ const updatePdfPreview = async () => {
       log.textContent = payload.error || "Failed to preview PDF";
       return;
     }
+    if (hasJpg) {
+      log.textContent = `Preview payload: ${JSON.stringify(payload)}`;
+    }
     const cacheBust = `t=${Date.now()}`;
-    pdfPreview.src = `${payload.pdf_url}?${cacheBust}#toolbar=0&navpanes=0&scrollbar=0`;
-    log.textContent = "PDF preview ready.";
+    if (payload.pdf_url) {
+      pdfPreview.src = `${payload.pdf_url}?${cacheBust}#toolbar=0&navpanes=0&scrollbar=0`;
+    } else {
+      pdfPreview.removeAttribute("src");
+    }
+    if (jpgPreview) {
+      if (payload.jpg_url) {
+        jpgPreview.src = `${encodeURI(payload.jpg_url)}?${cacheBust}`;
+      } else {
+        jpgPreview.removeAttribute("src");
+        if (hasJpg) {
+          const received = payload.jpg_received ? "yes" : "no";
+          log.textContent = `JPG preview not available (received: ${received}).`;
+        }
+      }
+    }
+    if (!hasJpg || payload.jpg_url) {
+      log.textContent = "PDF preview ready.";
+    }
   } catch (err) {
     log.textContent = err.message;
   }
@@ -205,6 +240,12 @@ if (logoInput) {
 
 if (pdfInput) {
   pdfInput.addEventListener("change", () => {
+    updatePdfPreview();
+  });
+}
+
+if (jpgInput) {
+  jpgInput.addEventListener("change", () => {
     updatePdfPreview();
   });
 }
@@ -317,8 +358,10 @@ const sendFormData = async (endpoint, options = {}) => {
   applyCsvOverride(data);
 
   if (options.requirePdf && (!pdfInput || !pdfInput.files.length)) {
-    log.textContent = "Missing PDF template. Please load a PDF file first.";
-    return;
+    if (!jpgInput || !jpgInput.files.length) {
+      log.textContent = "Missing PDF or JPG template. Please load at least one template.";
+      return;
+    }
   }
   if (options.requireTestEmail && (!testEmailInput || !testEmailInput.value.trim())) {
     log.textContent = "Missing test email.";
@@ -356,8 +399,8 @@ const sendBatchStream = async () => {
     log.textContent = "Missing CSV file. Please load a CSV file first.";
     return;
   }
-  if (!pdfInput || !pdfInput.files.length) {
-    log.textContent = "Missing PDF template. Please load a PDF file first.";
+  if ((!pdfInput || !pdfInput.files.length) && (!jpgInput || !jpgInput.files.length)) {
+    log.textContent = "Missing PDF or JPG template. Please load at least one template.";
     return;
   }
 

@@ -30,6 +30,7 @@ try:
     from pdf2image import convert_from_path
 except Exception:  # noqa: BLE001
     convert_from_path = None
+from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
@@ -48,6 +49,7 @@ FONT_CANDIDATES = [
     ("David", [Path("C:/Windows/Fonts/david.ttf"), Path("C:/Windows/Fonts/davidr.ttf")]),
 ]
 ACTIVE_FONT_NAME: str | None = None
+ACTIVE_FONT_PATH: Path | None = None
 DEFAULT_SUBJECT = "תעודת סיום קורס"
 ADMIN_NOTIFY_EMAIL = "rony.gabbai@gmail.com"
 CLIENT_SECRETS = APP_DIR / "client_secret.json"
@@ -74,7 +76,7 @@ def index(request: Request):
 
 
 def register_font_once() -> None:
-    global ACTIVE_FONT_NAME
+    global ACTIVE_FONT_NAME, ACTIVE_FONT_PATH
     if ACTIVE_FONT_NAME and ACTIVE_FONT_NAME in pdfmetrics.getRegisteredFontNames():
         return
 
@@ -88,11 +90,19 @@ def register_font_once() -> None:
                 pdfmetrics.registerFont(TTFont(font_name, str(path)))
                 if ACTIVE_FONT_NAME is None:
                     ACTIVE_FONT_NAME = font_name
+                    ACTIVE_FONT_PATH = path
                 break
 
     preferred = os.environ.get(FONT_PREF_ENV, "").strip()
     if preferred and preferred in pdfmetrics.getRegisteredFontNames():
         ACTIVE_FONT_NAME = preferred
+        for font_name, paths in FONT_CANDIDATES:
+            if font_name == preferred:
+                for path in paths:
+                    if path.exists():
+                        ACTIVE_FONT_PATH = path
+                        break
+                break
 
     if ACTIVE_FONT_NAME is None:
         raise FileNotFoundError(f"No supported font files found. Checked: {FONT_CANDIDATES}")
@@ -101,6 +111,11 @@ def register_font_once() -> None:
 def get_active_font() -> str:
     register_font_once()
     return ACTIVE_FONT_NAME or "Helvetica"
+
+
+def get_active_font_path() -> Optional[Path]:
+    register_font_once()
+    return ACTIVE_FONT_PATH
 
 
 def is_hebrew(text: str) -> bool:
@@ -113,11 +128,11 @@ def make_overlay_pdf(student_name: str, x_offset: int = 0, y_offset: int = 0) ->
     can = canvas.Canvas(packet, pagesize=letter)
     width, height = letter
 
-    reversed_name = student_name[::-1] if is_hebrew(student_name) else student_name
+    display_name = student_name[::-1] if is_hebrew(student_name) else student_name
     name_y_offset = 220
 
     can.setFont(get_active_font(), 42)
-    can.drawCentredString(width / 2.0 + x_offset, height - name_y_offset + y_offset, reversed_name)
+    can.drawCentredString(width / 2.0 + x_offset, height - name_y_offset + y_offset, display_name)
     can.save()
 
     packet.seek(0)
@@ -161,13 +176,51 @@ def convert_pdf_to_jpg(pdf_filename: Path) -> Optional[Path]:
     return jpg_filename
 
 
+def generate_diploma_jpg(
+    jpg_template_path: Path,
+    student_name: str,
+    output_dir: Path,
+    name_x_offset: int = 0,
+    name_y_offset: int = 0,
+) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    image = Image.open(jpg_template_path).convert("RGB")
+    draw = ImageDraw.Draw(image)
+
+    width, height = image.size
+    base_x = letter[0] / 2.0
+    base_y = letter[1] - 220
+
+    scale_x = width / letter[0]
+    scale_y = height / letter[1]
+    absolute_x = (base_x + name_x_offset) * scale_x
+    absolute_y = height - ((base_y + name_y_offset) * scale_y)
+
+    display_name = student_name
+    font_size = max(10, int(42 * scale_y))
+    font_path = get_active_font_path()
+    if font_path and font_path.exists():
+        font = ImageFont.truetype(str(font_path), font_size)
+    else:
+        font = ImageFont.load_default()
+
+    bbox = draw.textbbox((0, 0), display_name, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    draw.text((absolute_x - text_width / 2, absolute_y - text_height / 2), display_name, fill=(0, 0, 0), font=font)
+
+    jpg_filename = output_dir / f"{student_name.replace(' ', '_')}_diploma.jpg"
+    image.save(jpg_filename, "JPEG", quality=95)
+    return jpg_filename
+
+
 def build_message(
     student_name: str,
     student_email: str,
     html_content: str,
     subject: str,
     from_email: str,
-    pdf_filename: Path,
+    pdf_filename: Optional[Path],
     jpg_filename: Optional[Path],
     logo_bytes: Optional[bytes] = None,
     logo_filename: Optional[str] = None,
@@ -188,11 +241,12 @@ def build_message(
         image.add_header("Content-ID", "<logo_cid>")
         msg.attach(image)
 
-    with open(pdf_filename, "rb") as f:
-        pdf_data = f.read()
-        pdf_attachment = MIMEApplication(pdf_data, _subtype="pdf")
-        pdf_attachment.add_header("Content-Disposition", "attachment", filename=pdf_filename.name)
-        msg.attach(pdf_attachment)
+    if pdf_filename and pdf_filename.exists():
+        with open(pdf_filename, "rb") as f:
+            pdf_data = f.read()
+            pdf_attachment = MIMEApplication(pdf_data, _subtype="pdf")
+            pdf_attachment.add_header("Content-Disposition", "attachment", filename=pdf_filename.name)
+            msg.attach(pdf_attachment)
 
     if jpg_filename and jpg_filename.exists():
         with open(jpg_filename, "rb") as f:
@@ -448,7 +502,8 @@ def oauth_logout():
 
 @app.post("/api/test-send")
 def test_send(
-    pdf_template: UploadFile = File(...),
+    pdf_template: Optional[UploadFile] = File(None),
+    jpg_template: Optional[UploadFile] = File(None),
     logo_file: Optional[UploadFile] = File(None),
     html_content: str = Form(""),
     text_content: str = Form(""),
@@ -463,7 +518,12 @@ def test_send(
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = OUTPUT_DIR / f"test-{run_id}"
 
-    pdf_path = save_upload(pdf_template, run_dir)
+    pdf_path = None
+    if pdf_template and pdf_template.filename:
+        pdf_path = save_upload(pdf_template, run_dir)
+    jpg_template_path = None
+    if jpg_template and jpg_template.filename:
+        jpg_template_path = save_upload(jpg_template, run_dir)
 
     credentials = load_credentials()
     if not credentials:
@@ -484,8 +544,24 @@ def test_send(
     if not html_content:
         return JSONResponse({"ok": False, "error": "Letter content is empty."}, status_code=400)
 
-    pdf_output = generate_diploma_pdf(pdf_path, test_name, run_dir, name_x_offset=name_x_offset, name_y_offset=name_y_offset)
-    jpg_output = convert_pdf_to_jpg(pdf_output)
+    pdf_output = None
+    if pdf_path:
+        pdf_output = generate_diploma_pdf(
+            pdf_path,
+            test_name,
+            run_dir,
+            name_x_offset=name_x_offset,
+            name_y_offset=name_y_offset,
+        )
+    jpg_output = None
+    if jpg_template_path:
+        jpg_output = generate_diploma_jpg(
+            jpg_template_path,
+            test_name,
+            run_dir,
+            name_x_offset=name_x_offset,
+            name_y_offset=name_y_offset,
+        )
 
     logo_bytes = None
     logo_filename = None
@@ -533,7 +609,8 @@ def preview_csv(csv_file: UploadFile = File(...)):
 
 @app.post("/api/preview-pdf")
 def preview_pdf(
-    pdf_template: UploadFile = File(...),
+    pdf_template: Optional[UploadFile] = File(None),
+    jpg_template: Optional[UploadFile] = File(None),
     test_name: str = Form(""),
     name_x_offset: int = Form(0),
     name_y_offset: int = Form(0),
@@ -543,25 +620,48 @@ def preview_pdf(
 
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = OUTPUT_DIR / f"preview-{run_id}"
-    pdf_path = save_upload(pdf_template, run_dir)
 
-    pdf_output = generate_diploma_pdf(
-        pdf_path,
-        test_name.strip(),
-        run_dir,
-        name_x_offset=name_x_offset,
-        name_y_offset=name_y_offset,
-    )
+    pdf_path = None
+    if pdf_template and pdf_template.filename:
+        pdf_path = save_upload(pdf_template, run_dir)
+    jpg_template_path = None
+    jpg_received = bool(jpg_template and jpg_template.filename)
+    if jpg_received:
+        jpg_template_path = save_upload(jpg_template, run_dir)
+
+    pdf_url = None
+    if pdf_path:
+        pdf_output = generate_diploma_pdf(
+            pdf_path,
+            test_name.strip(),
+            run_dir,
+            name_x_offset=name_x_offset,
+            name_y_offset=name_y_offset,
+        )
+        pdf_url = f"/output/{pdf_output.parent.name}/{pdf_output.name}"
+    jpg_url = None
+    if jpg_template_path:
+        jpg_output = generate_diploma_jpg(
+            jpg_template_path,
+            test_name.strip(),
+            run_dir,
+            name_x_offset=name_x_offset,
+            name_y_offset=name_y_offset,
+        )
+        jpg_url = f"/output/{jpg_output.parent.name}/{jpg_output.name}"
     return {
         "ok": True,
-        "pdf_url": f"/output/{pdf_output.parent.name}/{pdf_output.name}",
+        "pdf_url": pdf_url,
+        "jpg_url": jpg_url,
+        "jpg_received": jpg_received,
     }
 
 
 @app.post("/api/send")
 def send_batch(
     csv_file: UploadFile = File(...),
-    pdf_template: UploadFile = File(...),
+    pdf_template: Optional[UploadFile] = File(None),
+    jpg_template: Optional[UploadFile] = File(None),
     logo_file: Optional[UploadFile] = File(None),
     html_content: str = Form(""),
     text_content: str = Form(""),
@@ -575,7 +675,15 @@ def send_batch(
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = OUTPUT_DIR / f"batch-{run_id}"
 
-    pdf_path = save_upload(pdf_template, run_dir)
+    if not pdf_template and not jpg_template:
+        return JSONResponse({"ok": False, "error": "Missing PDF or JPG template."}, status_code=400)
+
+    pdf_path = None
+    if pdf_template and pdf_template.filename:
+        pdf_path = save_upload(pdf_template, run_dir)
+    jpg_template_path = None
+    if jpg_template and jpg_template.filename:
+        jpg_template_path = save_upload(jpg_template, run_dir)
     csv_bytes = csv_file.file.read()
     students = parse_csv(csv_bytes)
 
@@ -635,14 +743,24 @@ def send_batch(
             continue
 
         try:
-            pdf_output = generate_diploma_pdf(
-                pdf_path,
-                student["name"],
-                run_dir,
-                name_x_offset=name_x_offset,
-                name_y_offset=name_y_offset,
-            )
-            jpg_output = convert_pdf_to_jpg(pdf_output)
+            pdf_output = None
+            if pdf_path:
+                pdf_output = generate_diploma_pdf(
+                    pdf_path,
+                    student["name"],
+                    run_dir,
+                    name_x_offset=name_x_offset,
+                    name_y_offset=name_y_offset,
+                )
+            jpg_output = None
+            if jpg_template_path:
+                jpg_output = generate_diploma_jpg(
+                    jpg_template_path,
+                    student["name"],
+                    run_dir,
+                    name_x_offset=name_x_offset,
+                    name_y_offset=name_y_offset,
+                )
             message = build_message(
                 student_name=student["name"],
                 student_email=student["email"],
@@ -684,7 +802,8 @@ def send_batch(
 @app.post("/api/send-stream")
 async def send_batch_stream(
     csv_file: UploadFile = File(...),
-    pdf_template: UploadFile = File(...),
+    pdf_template: Optional[UploadFile] = File(None),
+    jpg_template: Optional[UploadFile] = File(None),
     logo_file: Optional[UploadFile] = File(None),
     html_content: str = Form(""),
     text_content: str = Form(""),
@@ -699,7 +818,11 @@ async def send_batch_stream(
     run_dir = OUTPUT_DIR / f"batch-{run_id}"
 
     csv_bytes = await csv_file.read()
-    pdf_bytes = await pdf_template.read()
+    if not pdf_template and not jpg_template:
+        return JSONResponse({"ok": False, "error": "Missing PDF or JPG template."}, status_code=400)
+
+    pdf_bytes = await pdf_template.read() if pdf_template else None
+    jpg_bytes = await jpg_template.read() if jpg_template and jpg_template.filename else None
     logo_bytes = await logo_file.read() if logo_file and logo_file.filename else None
     logo_filename = Path(logo_file.filename).name if logo_file and logo_file.filename else None
 
@@ -724,7 +847,12 @@ async def send_batch_stream(
     if logo_bytes:
         html_content = inject_logo_cid(html_content)
 
-    pdf_path = save_bytes(pdf_template.filename or "template.pdf", pdf_bytes, run_dir)
+    pdf_path = None
+    if pdf_template and pdf_bytes is not None:
+        pdf_path = save_bytes(pdf_template.filename or "template.pdf", pdf_bytes, run_dir)
+    jpg_template_path = None
+    if jpg_bytes and jpg_template and jpg_template.filename:
+        jpg_template_path = save_bytes(jpg_template.filename or "template.jpg", jpg_bytes, run_dir)
     students = parse_csv(csv_bytes)
 
     selected = set()
@@ -756,14 +884,24 @@ async def send_batch_stream(
                 continue
 
             try:
-                pdf_output = generate_diploma_pdf(
-                    pdf_path,
-                    student["name"],
-                    run_dir,
-                    name_x_offset=name_x_offset,
-                    name_y_offset=name_y_offset,
-                )
-                jpg_output = convert_pdf_to_jpg(pdf_output)
+                pdf_output = None
+                if pdf_path:
+                    pdf_output = generate_diploma_pdf(
+                        pdf_path,
+                        student["name"],
+                        run_dir,
+                        name_x_offset=name_x_offset,
+                        name_y_offset=name_y_offset,
+                    )
+                jpg_output = None
+                if jpg_template_path:
+                    jpg_output = generate_diploma_jpg(
+                        jpg_template_path,
+                        student["name"],
+                        run_dir,
+                        name_x_offset=name_x_offset,
+                        name_y_offset=name_y_offset,
+                    )
                 message = build_message(
                     student_name=student["name"],
                     student_email=student["email"],

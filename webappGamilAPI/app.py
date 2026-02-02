@@ -49,6 +49,7 @@ FONT_CANDIDATES = [
 ]
 ACTIVE_FONT_NAME: str | None = None
 DEFAULT_SUBJECT = "תעודת סיום קורס"
+ADMIN_NOTIFY_EMAIL = "rony.gabbai@gmail.com"
 CLIENT_SECRETS = APP_DIR / "client_secret.json"
 CLIENT_SECRETS_ENV = "GMAIL_CLIENT_SECRET_PATH"
 TOKEN_DIR = APP_DIR / ".tokens"
@@ -201,6 +202,23 @@ def build_message(
             msg.attach(jpg_attachment)
 
     return msg
+
+
+def build_text_message(subject: str, body: str, from_email: str, to_email: str) -> MIMEMultipart:
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    if from_email:
+        msg["From"] = from_email
+    msg["To"] = to_email
+    msg.attach(MIMEText(body, "plain", "utf-8"))
+    return msg
+
+
+def send_batch_notification(credentials: Credentials, from_email: str, total_sent: int) -> None:
+    subject = "Batch send report"
+    body = f"From email: {from_email}\nTotal sent: {total_sent}\n"
+    msg = build_text_message(subject, body, from_email, ADMIN_NOTIFY_EMAIL)
+    send_email_gmail(msg, credentials)
 
 
 def save_credentials(credentials: Credentials) -> None:
@@ -643,6 +661,11 @@ def send_batch(
         except Exception as exc:  # noqa: BLE001
             errors.append({"name": student["name"], "error": str(exc)})
 
+    try:
+        send_batch_notification(credentials, from_email, len(sent))
+    except Exception as exc:  # noqa: BLE001
+        log_lines.append(f"notify_error:{str(exc)}")
+
     return {
         "ok": True,
         "output_dir": str(run_dir),
@@ -761,6 +784,10 @@ async def send_batch_stream(
                 yield f"error:{student['email']}:{str(exc)}\n"
 
         summary = {"sent": len(sent), "skipped": len(skipped)}
+        try:
+            send_batch_notification(credentials, from_email, summary["sent"])
+        except Exception as exc:  # noqa: BLE001
+            yield f"notify_error:{str(exc)}\n"
         yield f"summary: sent={summary['sent']} skipped={summary['skipped']}\n"
         payload = {
             "sent_indices": sent_indices,
